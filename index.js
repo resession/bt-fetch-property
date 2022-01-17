@@ -16,7 +16,7 @@ function encodeSigData (msg) {
 
 const defOpts = {folder: __dirname, magnet: 'magnet'}
 
-class WebProperty {
+class BTFetchProperty {
   constructor (opt = {}) {
     // super()
     if(!opt){
@@ -338,6 +338,6 @@ class WebProperty {
   }
 }
 
-module.exports = {WebProperty, verify: ed.verify}
+module.exports = {BTFetchProperty, verify: ed.verify}
 
 function noop () {}
