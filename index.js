@@ -52,9 +52,9 @@ class BTFetchProperty {
     })
   }
 
-  clearData(){
-    return fs.emptyDir(this._folder)
-  }
+  // clearData(){
+  //   return fs.emptyDir(this._folder)
+  // }
 
   resolve (address, callback) {
     if(!callback){
