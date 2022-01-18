@@ -14,7 +14,7 @@ function encodeSigData (msg) {
   return bencode.encode(ref).slice(1, -1)
 }
 
-const defOpts = {folder: __dirname, magnet: 'magnet'}
+const defOpts = {folder: __dirname, files: 'magnet'}
 
 class BTFetchProperty {
   constructor (opt = {}) {
@@ -29,7 +29,7 @@ class BTFetchProperty {
     }
     const finalOpts = {...defOpts, ...opt}
     this.dht = finalOpts.dht
-    this._folder = path.resolve(finalOpts.folder) + path.sep + finalOpts.magnet
+    this._folder = path.resolve(finalOpts.folder) + path.sep + finalOpts.files
     if(!fs.pathExistsSync(this._folder)){
       fs.ensureDirSync(this._folder)
     }
@@ -39,16 +39,15 @@ class BTFetchProperty {
     fs.pathExists(this._folder + path.sep + address, (error, exists) => {
       if(error){
         return callback(error)
-      }
-      if(exists){
+      } else if(exists){
         fs.remove(this._folder + path.sep + address, error => {
           if(error){
             return callback(error)
           }
-          return address
+          return callback(null, address)
         })
       } else if(!exists){
-        return address
+        return callback(null, address)
       }
     })
   }
@@ -219,74 +218,74 @@ class BTFetchProperty {
     })
   }
 
-  bothGetPut(data){
-    return new Promise((resolve, reject) => {
-      const buffAddKey = Buffer.from(data.address, 'hex')
-      const buffSigData = Buffer.from(data.sig, 'hex')
-      sha1(buffAddKey, (targetID) => {
+  bothGetPut(data, callback){
+    if(!callback){
+      callback = () => noop
+    }
+    const buffAddKey = Buffer.from(data.address, 'hex')
+    const buffSigData = Buffer.from(data.sig, 'hex')
+    sha1(buffAddKey, (targetID) => {
 
-        this.dht.get(targetID, (getErr, getData) => {
-          if(getErr){
-            console.log(getErr)
-          }
-          if(getData){
-            this.dht.put(getData, (putErr, hash, number) => {
-              if(putErr){
-                reject(putErr)
-              } else {
-                resolve({getData, putData: {hash: hash.toString('hex'), number}})
-              }
-            })
-          } else if(!getData){
-            this.dht.put({k: buffAddKey, v: {ih: data.infoHash, ...data.stuff}, seq: data.sequence, sig: buffSigData}, (putErr, hash, number) => {
-              if(putErr){
-                reject(putErr)
-              } else {
-                resolve({hash: hash.toString('hex'), number})
-              }
-            })
-          }
-        })
-      })
-    })
-  }
-
-  handleData(data){
-    return new Promise((resolve, reject) => {
-      this.dht.put({k: Buffer.from(data.address, 'hex'), v: {ih: data.infoHash, ...data.stuff}, seq: data.sequence, sig: Buffer.from(data.sig, 'hex')}, (error, hash, number) => {
-        if(error){
-          reject(error)
-        } else {
-          resolve({hash: hash.toString('hex'), number})
+      this.dht.get(targetID, (getErr, getData) => {
+        if(getErr){
+          console.log(getErr)
+        }
+        if(getData){
+          this.dht.put(getData, (putErr, hash, number) => {
+            if(putErr){
+              return callback(putErr)
+            } else {
+              return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
+            }
+          })
+        } else if(!getData){
+          this.dht.put({k: buffAddKey, v: {ih: data.infoHash, ...data.stuff}, seq: data.sequence, sig: buffSigData}, (putErr, hash, number) => {
+            if(putErr){
+              return callback(putErr)
+            } else {
+              return callback(null, {hash: hash.toString('hex'), number})
+            }
+          })
         }
       })
     })
   }
 
-  keepCurrent(address){
-    // if (!callback) {
-    //   callback = () => noop
-    // }
-    return new Promise((resolve, reject) => {
-      const buffAddKey = Buffer.from(address, 'hex')
+  saveData(data, callback){
+    if(!callback){
+      callback = () => noop
+    }
+    this.dht.put({k: Buffer.from(data.address, 'hex'), v: {ih: data.infoHash, ...data.stuff}, seq: data.sequence, sig: Buffer.from(data.sig, 'hex')}, (error, hash, number) => {
+      if(error){
+        return callback(error)
+      } else {
+        return callback(null, {hash: hash.toString('hex'), number})
+      }
+    })
+  }
 
-      sha1(buffAddKey, (targetID) => {
-  
-        this.dht.get(targetID, (getErr, getData) => {
-          if (getErr) {
-            reject(getErr)
-          } else if(getData){
-            this.dht.put(getData, (putErr, hash, number) => {
-              if(putErr){
-                reject(putErr)
-              } else {
-                resolve({getData, putData: {hash: hash.toString('hex'), number}})
-              }
-            })
-          } else if(!getData){
-            reject(new Error('could not find property'))
-          }
-        })
+  keepCurrent(address, callback){
+    if(!callback){
+      callback = () => noop
+    }
+    const buffAddKey = Buffer.from(address, 'hex')
+
+    sha1(buffAddKey, (targetID) => {
+
+      this.dht.get(targetID, (getErr, getData) => {
+        if (getErr) {
+          return callback(getErr)
+        } else if(getData){
+          this.dht.put(getData, (putErr, hash, number) => {
+            if(putErr){
+              return callback(putErr)
+            } else {
+              return callback(null, {getData, putData: {hash: hash.toString('hex'), number}})
+            }
+          })
+        } else if(!getData){
+          return callback(new Error('could not find property'))
+        }
       })
     })
   }
